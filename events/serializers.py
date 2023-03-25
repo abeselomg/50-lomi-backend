@@ -6,7 +6,7 @@ from users.models import Organization, User ,OrganizationUser
 from users.serializers import LoggedInUserSerializer, OrganizationSerializer, OrganizationUserSerializer
 from users.utils import CustomValidation, validate_phone
 from rest_framework_simplejwt.tokens import RefreshToken
-from events.models import Event, EventOrganizers
+from events.models import Event, EventOrganizers, EventsImage
 
         
         
@@ -85,3 +85,37 @@ class EventOrganizersSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
+    
+    
+
+
+class EventsImageSerializer(serializers.ModelSerializer):
+    eventId = serializers.UUIDField(write_only=True)
+
+    upload_image = serializers.ListField( 
+        child = serializers.ImageField(max_length = 1000000, allow_empty_file = False, use_url = False)
+        ,write_only = True
+    )
+    event = EventSerializer(read_only=True)
+    image=serializers.ImageField(read_only=True)
+    
+    class Meta:
+        model = EventsImage
+        fields = "__all__"
+        
+    def create(self, validated_data):
+        
+        event_id=validated_data['eventId']
+        uploaded_data = validated_data.pop('upload_image')
+        if not Event.objects.filter(id=event_id).exists():
+                    raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+        validated_data.pop("eventId")
+        evnt=Event.objects.get(id=event_id)
+        for item in uploaded_data:
+            photo=EventsImage.objects.create(image=item,event=evnt)
+        
+        return photo
+                
+        

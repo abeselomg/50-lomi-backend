@@ -1,6 +1,6 @@
 from django.urls import path,include
 
-from events.views import EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsList
+from events.views import EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsImageAdd, EventsList
 
 
 urlpatterns = [
@@ -11,6 +11,7 @@ urlpatterns = [
     path('event-orgs-add',EventOrganizersAdd.as_view(),name="event-orgs-add"),
     path('event-orgs-get',EventOrganizersOnEvent.as_view(),name="event-orgs-get"),
     path('events-org-remove/<str:id>',EventOrganizerDelete.as_view(),name="events-org-remove-from-event"),
+    path('events-image-add',EventsImageAdd.as_view(),name="events-image-add"),
     
     
     

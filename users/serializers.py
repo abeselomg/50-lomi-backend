@@ -1,16 +1,11 @@
 
 from django.contrib.auth import authenticate, get_user_model
-from django.contrib.postgres.fields import JSONField
-from django.db.models import Q
-from django.http import JsonResponse
 from rest_framework import serializers, status
-from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from rest_framework.validators import UniqueValidator
 from .utils import CustomValidation, validate_phone
 from .models import Organization, OrganizationUser, User
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.forms.models import model_to_dict
+
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)

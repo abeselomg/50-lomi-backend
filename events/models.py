@@ -1,22 +1,24 @@
+from uuid import uuid4
 from django.db import models
-from users.models import Organization,User
+from users.models import Organization,User,OrganizationUser
+from users.utils import validate_phone
 # Create your models here.
 
 
-class Location(models.Model):
-    city=models.CharField(max_length=255)
-    sub_city=models.CharField(max_length=255)
+
     
 
 class Event(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     title=models.CharField(max_length=255,blank=False,null=False)
     description=models.TextField()
     organization=models.ForeignKey(Organization,on_delete=models.SET_NULL,null=True)
     starting_date=models.DateField()
     ending_date=models.DateField()
-    location=models.ForeignKey(Location,on_delete=models.SET_NULL,null=True)
     address=models.CharField(max_length=255)
-    status=models.CharField(max_length=255,choices=(
+    contact_phone=models.CharField(max_length=255,validators=[validate_phone],default='')
+    contact_email=models.EmailField(default='')
+    status=models.CharField(max_length=255,default="upcoming",choices=(
     ("upcoming", "upcoming"),
     ("ongoing", "ongoing"),
     ("canceled", "canceled"),
@@ -27,18 +29,22 @@ class Event(models.Model):
     
 
 class EventOrganizers(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     event=models.ForeignKey(Event,on_delete=models.CASCADE)
-    organizer=models.ForeignKey(User,on_delete=models.CASCADE)
-
-
+    organizer=models.ForeignKey(OrganizationUser,on_delete=models.CASCADE) 
+    
+    class Meta:
+        unique_together = ('event', 'organizer')
 
 class EventsImage(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     event=models.ForeignKey(Event,on_delete=models.CASCADE)
     image=models.ImageField()
 
 
 
 class EventsSchedule(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     event=models.ForeignKey(Event,on_delete=models.CASCADE)
     date=models.DateField()
     session_name=models.CharField(max_length=255)
@@ -49,12 +55,14 @@ class EventsSchedule(models.Model):
 
 
 class EventsVolunteeringCategory(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     event=models.ForeignKey(Event,on_delete=models.CASCADE)
     category_name=models.CharField(max_length=255)
 
 
 
 class EventsVolunteers(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     events=models.ForeignKey(Event,on_delete=models.CASCADE)
     volunteers=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
     events_volunteering_category=models.ForeignKey(EventsVolunteeringCategory,on_delete=models.SET_NULL,null=True)

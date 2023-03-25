@@ -108,7 +108,7 @@ class EventsImageSerializer(serializers.ModelSerializer):
         event_id=validated_data['eventId']
         uploaded_data = validated_data.pop('upload_image')
         if not Event.objects.filter(id=event_id).exists():
-                    raise CustomValidation(
+            raise CustomValidation(
                 "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
             )
         validated_data.pop("eventId")

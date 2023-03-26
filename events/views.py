@@ -12,8 +12,8 @@ from utils.permissions import IsAdminPermission, IsEventOrgPermission, IsSuperAd
 from users.models import (Organization, OrganizationUser, User)
 from users.serializers import ( OrganizationSerializer, OrganizationUserSerializer, UserSerializer,LoginSerializer)
 
-from events.serializers import EventOrganizersSerializer, EventSerializer, EventsImageSerializer
-from .models import Event, EventOrganizers,EventsImage
+from events.serializers import EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer
+from .models import Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory
 # Create your views here.
 
 class EventsList(generics.ListAPIView):
@@ -94,7 +94,7 @@ class EventOrganizerDelete(generics.DestroyAPIView):
     
 
 class EventsImageAdd(generics.CreateAPIView):
-    permission_classes= (permissions.IsAuthenticated,)
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
     queryset = EventsImage.objects.all()
     serializer_class = EventsImageSerializer
 
@@ -111,3 +111,90 @@ class EventsImageAdd(generics.CreateAPIView):
             new_data["images"]=image_urls
             return Response(new_data, status=status.HTTP_201_CREATED)
         
+
+
+class EventImageDelete(generics.DestroyAPIView):
+    permission_classes = [IsEventOrgPermission]
+    queryset = EventsImage.objects.all()
+    lookup_field = "id"
+    
+    def delete(self, request, id=None):
+        return self.destroy(request, id)
+    
+    
+
+class EventsVolunteeringCategoryRUD(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (permissions.IsAuthenticated,IsEventOrgPermission)
+    serializer_class = EventsVolunteeringCategorySerializer
+    queryset = EventsVolunteeringCategory.objects.all()
+    lookup_field = "id"
+    
+    def get(self, request, id=None):
+        return self.retrieve(request, id)
+
+    def put(self, request, id=None):
+        return self.partial_update(request, id)
+
+    def delete(self, request, id=None):
+        return self.destroy(request, id)
+    
+class EventsVolunteeringCategoryAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventsVolunteeringCategory.objects.all()
+    serializer_class = EventsVolunteeringCategorySerializer
+
+    def post(self, request):
+        serializer = EventsVolunteeringCategorySerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class EventsScheduleList(generics.ListAPIView):
+       
+    queryset = EventsSchedule.objects.all()
+    serializer_class = EventsScheduleSerializer
+    
+    
+    def get_queryset(self):
+        eventID = self.request.query_params.get('eventId',None)
+    
+        if not Event.objects.filter(id=eventID).exists:
+                raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+        if eventID==None:
+            return EventsSchedule.objects.all()
+        else:
+            return EventsSchedule.objects.filter(event=Event.objects.get(id=eventID))
+            
+
+    
+    
+class EventsScheduleAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventsSchedule.objects.all()
+    serializer_class = EventsScheduleSerializer
+
+    def post(self, request):
+        serializer = EventsScheduleSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+
+class EventsScheduleRUD(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (permissions.IsAuthenticated,IsEventOrgPermission)
+    serializer_class = EventsScheduleSerializer
+    queryset = EventsSchedule.objects.all()
+    lookup_field = "id"
+    
+    def get(self, request, id=None):
+        return self.retrieve(request, id)
+
+    def put(self, request, id=None):
+        return self.partial_update(request, id)
+
+    def delete(self, request, id=None):
+        return self.destroy(request, id)
+    

@@ -70,7 +70,7 @@ class EventsVolunteers(models.Model):
     ("active", "active"),
     ("unregistered", "unregistered")
 ))
-    Registery_date=models.DateTimeField(auto_now_add=True)
+    registery_date=models.DateTimeField(auto_now_add=True)
     # add reward feature
 
 

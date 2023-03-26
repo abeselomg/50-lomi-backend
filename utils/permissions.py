@@ -25,13 +25,13 @@ class IsAdminPermission(permissions.BasePermission):
             if OrganizationUser.objects.filter(user=request.user).exists():
                 
                 #NOT A FINAL SOLUTION.
-                if request.method in ["GET","PATCH", "DELETE"]:
+                # if request.method in ["GET","PATCH", "DELETE"]:
                     return True
                 
-                org_id=OrganizationUser.objects.get(user=request.user).organization.id
-                org = request.data['organizationId'] 
-                if str(org_id)==org:
-                    return True
+                # org_id=OrganizationUser.objects.get(user=request.user).organization.id
+                # org = request.data['organizationId'] 
+                # if str(org_id)==org:
+                #     return True
             
         return False
     
@@ -49,13 +49,13 @@ class IsEventOrgPermission(permissions.BasePermission):
             if OrganizationUser.objects.filter(user=request.user).exists():
                 
                 #NOT A FINAL SOLUTION.
-                if request.method in ["GET","PATCH", "DELETE"]:
+                # if request.method in ["GET","PATCH", "DELETE"]:
                     return True
                 
-                org_id=OrganizationUser.objects.get(user=request.user).organization.id
-                org = request.data['organizationId'] 
-                if str(org_id)==org:
-                    return True
+                # org_id=OrganizationUser.objects.get(user=request.user).organization.id
+                # org = request.data['organizationId'] 
+                # if str(org_id)==org:
+                #     return True
             
         return False
     

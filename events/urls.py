@@ -1,6 +1,6 @@
 from django.urls import path,include
 
-from events.views import EventImageDelete, EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsImageAdd, EventsList, EventsScheduleAdd, EventsScheduleList, EventsScheduleRUD, EventsVolunteeringCategoryAdd, EventsVolunteeringCategoryRUD
+from events.views import EventImageDelete, EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsImageAdd, EventsList, EventsScheduleAdd, EventsScheduleList, EventsScheduleRUD, EventsVolunteeringCategoryAdd, EventsVolunteeringCategoryRUD, EventsVolunteersAdd
 
 
 urlpatterns = [
@@ -21,5 +21,7 @@ urlpatterns = [
     path("event-schedule-get", EventsScheduleList.as_view(), name="event-schedule-get"),
     path('event-schedule-edit/<str:id>',EventsScheduleRUD.as_view(),name="event-schedule-edit"),
     path('event-schedule-delete/<str:id>',EventsScheduleRUD.as_view(),name="event-schedule-delete"),
-
+    
+    path('register-for-event',EventsVolunteersAdd.as_view(),name="register-for-event"),
+    
 ]

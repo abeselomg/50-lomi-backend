@@ -12,8 +12,8 @@ from utils.permissions import IsAdminPermission, IsEventOrgPermission, IsSuperAd
 from users.models import (Organization, OrganizationUser, User)
 from users.serializers import ( OrganizationSerializer, OrganizationUserSerializer, UserSerializer,LoginSerializer)
 
-from events.serializers import EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer
-from .models import Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory
+from events.serializers import EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer, EventsVolunteersSerializer
+from .models import Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers
 # Create your views here.
 
 class EventsList(generics.ListAPIView):
@@ -198,3 +198,17 @@ class EventsScheduleRUD(generics.RetrieveUpdateDestroyAPIView):
     def delete(self, request, id=None):
         return self.destroy(request, id)
     
+
+
+
+class EventsVolunteersAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventsVolunteers.objects.all()
+    serializer_class = EventsVolunteersSerializer
+
+    def post(self, request):
+        serializer = EventsVolunteersSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        

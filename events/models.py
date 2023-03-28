@@ -63,19 +63,23 @@ class EventsVolunteeringCategory(models.Model):
 
 class EventsVolunteers(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
-    events=models.ForeignKey(Event,on_delete=models.CASCADE)
-    volunteers=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
+    event=models.ForeignKey(Event,on_delete=models.CASCADE)
+    volunteer=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
     events_volunteering_category=models.ForeignKey(EventsVolunteeringCategory,on_delete=models.SET_NULL,null=True)
     status=models.CharField(max_length=255,choices=(
-    ("active", "active"),
+    ("registered", "registered"),
     ("unregistered", "unregistered")
 ))
     registery_date=models.DateTimeField(auto_now_add=True)
     # add reward feature
+    
+    class Meta:
+        unique_together = ('event', 'volunteer')
 
 
-# class EventsVolunteersHours(models.Model):
-#     events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
-#     date=models.DateField()
-#     daily_total_hours=models.FloatField()
+class EventsVolunteersHours(models.Model):
+    events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
+    date=models.DateField()
+    attended=models.BooleanField()
+    daily_total_hours=models.FloatField()
 

@@ -64,7 +64,7 @@ class EventsVolunteeringCategory(models.Model):
 class EventsVolunteers(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     event=models.ForeignKey(Event,on_delete=models.CASCADE)
-    volunteer=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
+    volunteer=models.ForeignKey(User,on_delete=models.CASCADE)
     events_volunteering_category=models.ForeignKey(EventsVolunteeringCategory,on_delete=models.SET_NULL,null=True)
     status=models.CharField(max_length=255,choices=(
     ("registered", "registered"),
@@ -78,8 +78,40 @@ class EventsVolunteers(models.Model):
 
 
 class EventsVolunteersHours(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
     date=models.DateField()
     attended=models.BooleanField()
     daily_total_hours=models.FloatField()
+
+
+class EventsVolunteersCertification(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
+    issue_date=models.DateTimeField(auto_now_add=True)
+    title=models.CharField(max_length=255)
+    description=models.TextField()
+
+
+class Campaign(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    title=models.CharField(max_length=255)
+    description=models.TextField()
+    organization=models.ForeignKey(Organization,on_delete=models.SET_NULL,null=True)
+    starting_date=models.DateField()
+    ending_date=models.DateField()
+    campaign_manager=models.ForeignKey(User,on_delete=models.SET_NULL,null=True)
+    
+
+class CampaignVolunteer(models.Model):
+    campaign=models.ForeignKey(Campaign,on_delete=models.SET_NULL,null=True)
+    volunteer=models.ForeignKey(User,on_delete=models.CASCADE)
+    registery_date=models.DateTimeField(auto_now_add=True)
+
+class Donation(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    donor_name=models.CharField(max_length=255,default='')
+    amount=models.FloatField()
+    campaign=models.ForeignKey(Campaign,on_delete=models.SET_NULL,null=True)
+    donation_date=models.DateField(auto_now_add=True)
 

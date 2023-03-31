@@ -12,8 +12,8 @@ from utils.permissions import IsAdminPermission, IsEventOrgPermission, IsSuperAd
 from users.models import (Organization, OrganizationUser, User)
 from users.serializers import ( OrganizationSerializer, OrganizationUserSerializer, UserSerializer,LoginSerializer)
 
-from events.serializers import EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer, EventsVolunteersSerializer
-from .models import Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers
+from events.serializers import CampaignManagerSerializer, CampaignSerializer, CampaignVolunteersSerializer, DonationSerializer, EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer, EventsVolunteersCertificationSerializer, EventsVolunteersHoursSerializer, EventsVolunteersSerializer
+from .models import Campaign, CampaignVolunteer, Donation, Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
 # Create your views here.
 
 class EventsList(generics.ListAPIView):
@@ -202,7 +202,7 @@ class EventsScheduleRUD(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventsVolunteersAdd(generics.CreateAPIView):
-    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    
     queryset = EventsVolunteers.objects.all()
     serializer_class = EventsVolunteersSerializer
 
@@ -211,4 +211,82 @@ class EventsVolunteersAdd(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        
+class EventsVolunteersHoursAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventsVolunteersHours.objects.all()
+    serializer_class = EventsVolunteersHoursSerializer
+
+    def post(self, request):
+        serializer = EventsVolunteersHoursSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+             
+        
+class EventsVolunteersCertificationAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventsVolunteersCertification.objects.all()
+    serializer_class = EventsVolunteersCertificationSerializer
+
+    def post(self, request):
+        serializer = EventsVolunteersCertificationSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+             
+   
+   
+class CampaignList(generics.ListAPIView):
+       
+    queryset = Campaign.objects.all()
+    serializer_class = CampaignSerializer 
+    
+class CampaignAdd(generics.CreateAPIView):
+    permission_classes= [permissions.IsAuthenticated]
+    queryset = Campaign.objects.all()
+    serializer_class = CampaignSerializer
+
+    def post(self, request):
+        serializer = CampaignSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+             
+        
+    
+class AddCampaignManager(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CampaignManagerSerializer
+    queryset = Campaign.objects.all()
+    lookup_field = "id"
+    
+
+    def put(self, request, id=None):
+        return self.partial_update(request, id)
+
+    
+class CampaignVolunteerAdd(generics.CreateAPIView):
+    queryset = CampaignVolunteer.objects.all()
+    serializer_class = CampaignVolunteersSerializer
+
+    def post(self, request):
+        serializer = CampaignVolunteersSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+             
+        
+class DonationAdd(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated,IsAdminPermission]
+    queryset = Donation.objects.all()
+    serializer_class = DonationSerializer
+
+    def post(self, request):
+        serializer = DonationSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+             
         

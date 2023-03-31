@@ -42,7 +42,7 @@ class IsEventOrgPermission(permissions.BasePermission):
     """
     
     
-    message = 'Permission Denied. User needs to have an Admin role in the specified organization.'
+    message = 'Permission Denied. User needs to have an Event-organizer role in the specified organization.'
     def has_permission(self, request, view):
 
         if request.user.role=='event_org':

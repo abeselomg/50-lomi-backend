@@ -27,6 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "email",
+            "changed_password",
             "password",
             "role"
         )
@@ -76,8 +77,10 @@ class LoginSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ("phone", "password", "first_name", "last_name","role","email")
-        read_only_fields = ("first_name", "last_name","role","email")
+            
+        fields = ("phone", "password", "first_name", "last_name","role","email","changed_password",)
+            
+        read_only_fields = ("first_name", "last_name","role","email","changed_password",)
 
     def validate(self, data):
         """Validate user data"""
@@ -129,7 +132,9 @@ class LoggedInUserSerializer(serializers.ModelSerializer):
             "role",
             "first_name",
             "last_name",
-            "email"
+            "email",
+            "changed_password"
+            
         )
 
 

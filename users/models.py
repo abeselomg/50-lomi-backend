@@ -50,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=15, unique=True, validators=[validate_phone])
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
+    changed_password=models.BooleanField(default=False)
     email=models.EmailField(blank=True, default='')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -106,3 +107,7 @@ class OrganizationUser(models.Model):
     organization=models.ForeignKey(Organization,on_delete=models.CASCADE)
     user=models.ForeignKey(User,on_delete=models.CASCADE)
     
+
+
+
+

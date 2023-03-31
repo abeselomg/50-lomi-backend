@@ -6,7 +6,7 @@ from users.models import Organization, User ,OrganizationUser
 from users.serializers import LoggedInUserSerializer, OrganizationSerializer, OrganizationUserSerializer
 from users.utils import CustomValidation, validate_phone
 from rest_framework_simplejwt.tokens import RefreshToken
-from events.models import Event, EventOrganizers, EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers
+from events.models import Campaign, CampaignVolunteer, Donation, Event, EventOrganizers, EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
 from rest_framework.validators import UniqueTogetherValidator
         
         
@@ -47,6 +47,22 @@ class SimpleOrganizationUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrganizationUser
         fields = ["user"]
+        
+        
+
+
+class SimpleEventSerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+
+    def get_images(self, obj):
+        imgs = EventsImage.objects.filter(event=obj)
+        return SimpleEventsImageSerializer(imgs, many=True).data
+    
+    class Meta:
+        model = Event
+        fields = ["id","title","starting_date",
+                  "ending_date","status","images"]
+            
     
 class EventOrganizersSerializer(serializers.ModelSerializer):
     eventId = serializers.UUIDField(write_only=True)
@@ -140,7 +156,6 @@ class EventsImageSerializer(serializers.ModelSerializer):
         
 class EventsVolunteeringCategorySerializer(serializers.ModelSerializer):
     eventId = serializers.UUIDField(write_only=True)
-    # event = EventSerializer(read_only=True)
 
     class Meta:
         model = EventsVolunteeringCategory
@@ -191,7 +206,7 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
     phone = serializers.CharField(write_only=True)
     status = serializers.CharField(required=False,write_only=True,allow_blank=True)
     eventId = serializers.UUIDField(write_only=True)
-    event = EventSerializer(read_only=True)
+    event = SimpleEventSerializer(read_only=True)
     volunteer=LoggedInUserSerializer(read_only=True)
     class Meta:
         model = EventsVolunteers
@@ -224,3 +239,162 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
     
+
+class EventsVolunteersHoursSerializer(serializers.ModelSerializer):
+    userId=serializers.CharField(write_only=True)
+    eventId=serializers.CharField(write_only=True)
+    events_volunteers = EventsVolunteersSerializer(read_only=True)
+    
+    class Meta:
+        model = EventsVolunteersHours
+        fields ="__all__"
+        
+    def create(self, validated_data):
+        event_id=validated_data.pop('eventId')
+        user_id=validated_data.pop('userId')
+        
+        if not Event.objects.filter(id=event_id).exists():
+            raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+            
+        if not User.objects.filter(id=user_id).exists():
+            raise CustomValidation(
+            "detail", "Invalid User Id", status.HTTP_400_BAD_REQUEST
+        )
+            
+        user=User.objects.get(id=user_id)
+        event=Event.objects.get(id=event_id)
+        vol=EventsVolunteers.objects.get(event=event,volunteer=user) 
+        hrs=EventsVolunteersHours.objects.create(events_volunteers=vol,**validated_data)
+        return hrs
+    
+    
+
+class EventsVolunteersCertificationSerializer(serializers.ModelSerializer):
+    userId=serializers.CharField(write_only=True)
+    eventId=serializers.CharField(write_only=True)
+    events_volunteers = EventsVolunteersSerializer(read_only=True)
+    
+    class Meta:
+        model = EventsVolunteersCertification
+        fields ="__all__"
+        
+    def create(self, validated_data):
+        event_id=validated_data.pop('eventId')
+        user_id=validated_data.pop('userId')
+        
+        if not Event.objects.filter(id=event_id).exists():
+            raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+            
+        if not User.objects.filter(id=user_id).exists():
+            raise CustomValidation(
+            "detail", "Invalid User Id", status.HTTP_400_BAD_REQUEST
+        )
+            
+        user=User.objects.get(id=user_id)
+        event=Event.objects.get(id=event_id)
+        vol=EventsVolunteers.objects.get(event=event,volunteer=user) 
+        hrs=EventsVolunteersCertification.objects.create(events_volunteers=vol,**validated_data)
+        return hrs
+    
+    
+    
+    
+class CampaignSerializer(serializers.ModelSerializer):
+    organizationId = serializers.UUIDField(write_only=True)
+    organization = OrganizationSerializer(read_only=True)
+    campaign_manager = LoggedInUserSerializer(read_only=True)
+    class Meta:
+        model = Campaign
+        fields ="__all__"
+        
+    def create(self, validated_data):
+        organization_id=validated_data.pop("organizationId")
+        if not Organization.objects.filter(id=organization_id).exists():
+                raise CustomValidation(
+                "detail", "Invalid Organization Id", status.HTTP_400_BAD_REQUEST
+            )
+        
+        org=Organization.objects.get(id=organization_id)
+        camp=Campaign.objects.create(**validated_data,organization=org)
+        return camp
+    
+    
+class CampaignManagerSerializer(serializers.ModelSerializer):
+    managerId = serializers.UUIDField(write_only=True)
+    campaign_manager = LoggedInUserSerializer(read_only=True)
+    
+    class Meta:
+        model = Campaign
+        fields ="__all__"
+        
+    def update(self, instance, validated_data):
+        managerId=validated_data.pop("managerId")
+        if not User.objects.filter(id=managerId).exists():
+                raise CustomValidation(
+                "detail", "Invalid Organization Id", status.HTTP_400_BAD_REQUEST
+            )
+        
+        usr=User.objects.get(id=managerId)
+        instance.campaign_manager = usr
+            
+        instance.save()
+        return instance
+    
+    
+    
+class CampaignVolunteersSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(write_only=True)
+    last_name = serializers.CharField(write_only=True)
+    phone = serializers.CharField(write_only=True)
+    campaignId = serializers.UUIDField(write_only=True)
+    volunteer=LoggedInUserSerializer(read_only=True)
+    class Meta:
+        model = CampaignVolunteer
+        fields ="__all__"
+ 
+    def create(self, validated_data):
+        campaign_id=validated_data.pop("campaignId")
+        if not Campaign.objects.filter(id=campaign_id).exists():
+            raise CustomValidation(
+                "detail", "Invalid Campaign Id", status.HTTP_400_BAD_REQUEST
+            )
+        
+        camp=Campaign.objects.get(id=campaign_id)
+        user,created=User.objects.get_or_create(phone=validated_data['phone'],
+                                                defaults={'first_name':validated_data['first_name'],
+                                                          'last_name':validated_data['last_name'],
+                                                           'role':'volunteer'})
+        
+        if created:                                               
+            user.set_password('123456789')
+            user.save()
+        
+        camp_vol,created=CampaignVolunteer.objects.get_or_create(campaign=camp,volunteer=user)
+        
+        return camp_vol
+    
+    
+    
+class DonationSerializer(serializers.ModelSerializer):
+    campaignId = serializers.UUIDField(write_only=True)
+    organization = OrganizationSerializer(read_only=True)
+    campaign=CampaignSerializer(read_only=True)
+    
+    class Meta:
+        model = Donation
+        fields ="__all__"
+        
+    def create(self, validated_data):
+        campaign_id=validated_data.pop("campaignId")
+        if not Campaign.objects.filter(id=campaign_id).exists():
+                raise CustomValidation(
+                "detail", "Invalid Campaign Id", status.HTTP_400_BAD_REQUEST
+            )
+         
+        camp=Campaign.objects.get(id=campaign_id)
+        don=Donation.objects.create(**validated_data,campaign=camp)
+        return don

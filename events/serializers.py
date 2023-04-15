@@ -6,15 +6,24 @@ from users.models import Organization, User ,OrganizationUser
 from users.serializers import LoggedInUserSerializer, OrganizationSerializer, OrganizationUserSerializer
 from users.utils import CustomValidation, validate_phone
 from rest_framework_simplejwt.tokens import RefreshToken
-from events.models import Campaign, CampaignVolunteer, Donation, Event, EventOrganizers, EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
+from events.models import Campaign,SuperCategory, CampaignVolunteer, Donation, Event, EventOrganizers, EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
 from rest_framework.validators import UniqueTogetherValidator
+from datetime import datetime
         
         
+class SuperCategorySerializer(serializers.ModelSerializer):
+        class Meta:
+            model = SuperCategory
+            fields="__all__"
+    
+    
+    
 class EventSerializer(serializers.ModelSerializer):
     organizationId = serializers.CharField(write_only=True)
     organization = OrganizationSerializer(read_only=True)
     images = serializers.SerializerMethodField()
     event_volunteering_categories=serializers.SerializerMethodField()
+    general_category=SuperCategorySerializer(read_only=True)
 
     def get_images(self, obj):
         imgs = EventsImage.objects.filter(event=obj)
@@ -25,7 +34,7 @@ class EventSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Event
-        fields = ["id","title","description","organization","starting_date",
+        fields = ["id","title","description","organization","general_category","starting_date",
                   "ending_date","address","contact_phone","contact_email",
                   "status","organizationId","images","event_volunteering_categories"]
 
@@ -47,8 +56,6 @@ class SimpleOrganizationUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrganizationUser
         fields = ["user"]
-        
-        
 
 
 class SimpleEventSerializer(serializers.ModelSerializer):
@@ -173,6 +180,36 @@ class EventsVolunteeringCategorySerializer(serializers.ModelSerializer):
         return category
     
     
+class EventsVolunteeringCategoryBulkSerializer(serializers.ModelSerializer):
+    eventId = serializers.UUIDField(write_only=True)
+
+    category_name = serializers.ListField( 
+        child = serializers.CharField()
+        ,write_only = True
+    )
+    event = EventSerializer(read_only=True)
+    image=serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = EventsVolunteeringCategory
+        fields = "__all__"
+        
+    def create(self, validated_data):
+        
+        event_id=validated_data['eventId']
+        uploaded_data = validated_data.pop('category_name')
+        if not Event.objects.filter(id=event_id).exists():
+            raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+        validated_data.pop("eventId")
+        evnt=Event.objects.get(id=event_id)
+        for item in uploaded_data:
+                category=EventsVolunteeringCategory.objects.create(category_name=item,event=evnt)
+        
+        return category
+
+                
     
     
     
@@ -204,10 +241,17 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
     phone = serializers.CharField(write_only=True)
+    email = serializers.CharField(write_only=True,required=False,allow_blank=True)
     status = serializers.CharField(required=False,write_only=True,allow_blank=True)
     eventId = serializers.UUIDField(write_only=True)
     event = SimpleEventSerializer(read_only=True)
     volunteer=LoggedInUserSerializer(read_only=True)
+    volunteer_hrs=serializers.SerializerMethodField()
+
+    def get_volunteer_hrs(self, obj):
+        hrs = EventsVolunteersHours.objects.filter(events_volunteers=obj,date=datetime.now().date())
+        return SimpleEventsVolunteersHoursSerializer(hrs, many=True).data
+    # EventsVolunteersHoursSerializer
     class Meta:
         model = EventsVolunteers
         fields ="__all__"
@@ -223,6 +267,7 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
         user,created=User.objects.get_or_create(phone=validated_data['phone'],
                                                 defaults={'first_name':validated_data['first_name'],
                                                           'last_name':validated_data['last_name'],
+                                                          'email':validated_data.get('email',''),
                                                            'role':'volunteer'})
         
         if created:                                               
@@ -239,7 +284,13 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
     
-
+# date
+# attended
+# daily_total_hours
+class SimpleEventsVolunteersHoursSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventsVolunteersHours
+        fields =["id","date","attended"]
 class EventsVolunteersHoursSerializer(serializers.ModelSerializer):
     userId=serializers.CharField(write_only=True)
     eventId=serializers.CharField(write_only=True)
@@ -266,7 +317,9 @@ class EventsVolunteersHoursSerializer(serializers.ModelSerializer):
         user=User.objects.get(id=user_id)
         event=Event.objects.get(id=event_id)
         vol=EventsVolunteers.objects.get(event=event,volunteer=user) 
-        hrs=EventsVolunteersHours.objects.create(events_volunteers=vol,**validated_data)
+        hrs,created=EventsVolunteersHours.objects.get_or_create(events_volunteers=vol,date=validated_data['date'],
+                                                defaults={'attended':validated_data['attended']})
+        # hrs=EventsVolunteersHours.objects.create(events_volunteers=vol,**validated_data)
         return hrs
     
     

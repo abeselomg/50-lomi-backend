@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, get_user_model
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from .utils import CustomValidation, validate_phone
-from .models import Organization, OrganizationUser, User
+from .models import Message, Organization, OrganizationUser, User, UserMessage
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -148,19 +148,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "id": {"read_only": True},
         }
         
-        def update(self, instance, validated_data):
-            instance.name = validated_data.get("name", instance.name)
-            instance.description = validated_data.get("description", instance.description)
-            instance.contact_phone = validated_data.get("contact_phone", instance.contact_phone)
-            instance.contact_email = validated_data.get("contact_email", instance.contact_email)
-            instance.legal_document = validated_data.get("legal_document", instance.legal_document)
-            instance.regulation_body_account_id = validated_data.get("regulation_body_account_id", instance.regulation_body_account_id)
-            instance.is_verified = validated_data.get("is_verified", instance.is_verified)
-            instance.verification_notes = validated_data.get("verification_notes", instance.verification_notes)
-            
-            
-            instance.save()
-            return instance
+    def update(self, instance, validated_data):
+            return super().update(instance, validated_data)
         
         
 class OrganizationUserSerializer(serializers.ModelSerializer):
@@ -197,10 +186,38 @@ class OrganizationUserSerializer(serializers.ModelSerializer):
             raise CustomValidation(
                 "detail", "Phone number already exists.", status.HTTP_400_BAD_REQUEST
             )
+        password=validated_data.pop('password')
         user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        
         admin = OrganizationUser.objects.create(
             user=user, organization=organization_value
         )
         return admin
     
     
+class MessageSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = Message
+            fields = "__all__"
+    
+class UserMessageSerializer(serializers.ModelSerializer):
+    # senderId = serializers.UUIDField(write_only=True)
+    reciverId = serializers.UUIDField(write_only=True)
+    message_text = serializers.CharField(write_only=True)
+    sender=LoggedInUserSerializer(read_only=True)
+    reciver=LoggedInUserSerializer(read_only=True)
+    message=MessageSerializer(read_only=True)
+    
+    class Meta:
+        model = UserMessage
+        fields = "__all__"
+
+    def create(self, validated_data):
+        sender_user =  self.context['request'].user
+        reciver_user=User.objects.get(id=validated_data.pop("reciverId")) 
+        message=Message.objects.create(message_body=validated_data.pop("message_text"))
+        user_mes=UserMessage.objects.create(sender=sender_user,reciver=reciver_user,message=message)
+        
+        return user_mes

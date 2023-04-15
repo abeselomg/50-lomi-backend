@@ -50,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=15, unique=True, validators=[validate_phone])
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
+    profile_pic=models.ImageField(null=True,blank=True)
     changed_password=models.BooleanField(default=False)
     email=models.EmailField(blank=True, default='')
     is_active = models.BooleanField(default=True)
@@ -88,6 +89,7 @@ class Organization(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     name=models.CharField(max_length=255,blank=False,null=False)
     description=models.TextField(blank=True,default='')
+    profile_pic=models.ImageField(null=True,blank=True)
     contact_phone=models.CharField(max_length=15, unique=True, validators=[validate_phone])
     contact_email=models.EmailField()
     legal_document=models.FileField()
@@ -109,5 +111,18 @@ class OrganizationUser(models.Model):
     
 
 
-
+class Message(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    message_body=models.TextField()
+    created_time=models.TimeField(auto_now_add=True)
+    
+    
+class UserMessage(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    sender=models.ForeignKey(User,on_delete=models.CASCADE,related_name="sender")
+    reciver=models.ForeignKey(User,on_delete=models.CASCADE,related_name="reciver")
+    message=models.ForeignKey(Message,on_delete=models.CASCADE)
+    is_read=models.BooleanField(default=False)
+    created_date=models.DateField(auto_now_add=True)
+    
 

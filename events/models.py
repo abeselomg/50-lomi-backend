@@ -5,7 +5,14 @@ from users.utils import validate_phone
 # Create your models here.
 
 
-
+class SuperCategory(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    title=models.CharField(max_length=255,blank=False,null=False)
+    description=models.TextField()
+    
+    def __str__(self):
+        return self.title
+        
     
 
 class Event(models.Model):
@@ -13,6 +20,7 @@ class Event(models.Model):
     title=models.CharField(max_length=255,blank=False,null=False)
     description=models.TextField()
     organization=models.ForeignKey(Organization,on_delete=models.SET_NULL,null=True)
+    general_category=models.ForeignKey(SuperCategory,on_delete=models.SET_NULL,null=True)
     starting_date=models.DateField()
     ending_date=models.DateField()
     address=models.CharField(max_length=255)
@@ -26,6 +34,8 @@ class Event(models.Model):
     ("finished", "finished")
 ))
     
+    def __str__(self):
+            return self.title
     
 
 class EventOrganizers(models.Model):
@@ -82,7 +92,7 @@ class EventsVolunteersHours(models.Model):
     events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
     date=models.DateField()
     attended=models.BooleanField()
-    daily_total_hours=models.FloatField()
+    daily_total_hours=models.FloatField(default=0)
 
 
 class EventsVolunteersCertification(models.Model):

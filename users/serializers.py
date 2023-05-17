@@ -2,8 +2,10 @@
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework import serializers, status
 from rest_framework.response import Response
+
+from events.models import Event, EventsVolunteers
 from .utils import CustomValidation, validate_phone
-from .models import Message, Organization, OrganizationUser, User, UserMessage
+from .models import Organization, OrganizationUser, User, UserMessage,UserNotification
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -25,6 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
+            "profile_pic",
             "phone",
             "email",
             "changed_password",
@@ -38,8 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create a new user with encrypted password and return it"""
-        
-        print(validated_data)
+
         if validated_data['role']!='volunteer':
             raise CustomValidation(
                 "detail", "You are not authorized to register with this role.", status.HTTP_401_UNAUTHORIZED
@@ -78,12 +80,14 @@ class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
             
-        fields = ("phone", "password", "first_name", "last_name","role","email","changed_password",)
+        fields = ("phone", "password", "first_name", "last_name","role","email","changed_password","profile_pic")
             
-        read_only_fields = ("first_name", "last_name","role","email","changed_password",)
+        read_only_fields = ("first_name", "last_name","role","email","changed_password","profile_pic")
 
     def validate(self, data):
         """Validate user data"""
+        validate_phone(data.get("phone", None))
+        
         user = authenticate(
             phone=data.get("phone", None), password=data.get("password", None)
         )
@@ -98,16 +102,22 @@ class LoginSerializer(serializers.ModelSerializer):
         data = LoggedInUserSerializer(user)
         
         if user.role=='admin' or user.role=='event_org':
-            org=OrganizationUser.objects.get(user=user).organization
-            org_data=Organization.objects.filter(id=org.id).values()
-            return Response(
-            {
-                "user": data.data,
-                "token":token,
-                "org":org_data
-            },
-            status=status.HTTP_200_OK,
-        )
+            try:
+                org=OrganizationUser.objects.get(user=user).organization
+                org_data=Organization.objects.filter(id=org.id).values()
+                return Response(
+                {
+                    "user": data.data,
+                    "token":token,
+                    "org":org_data
+                },
+                status=status.HTTP_200_OK,
+            )
+            except Exception as e:
+                raise CustomValidation(
+                "detail", e, status.HTTP_401_UNAUTHORIZED
+            )
+            
         
        
         return Response(
@@ -133,7 +143,8 @@ class LoggedInUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
-            "changed_password"
+            "changed_password",
+            "profile_pic"
             
         )
 
@@ -186,29 +197,29 @@ class OrganizationUserSerializer(serializers.ModelSerializer):
             raise CustomValidation(
                 "detail", "Phone number already exists.", status.HTTP_400_BAD_REQUEST
             )
-        password=validated_data.pop('password')
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
+        try:
+            password=validated_data.pop('password')
+            user = User.objects.create_user(**validated_data)
+            user.set_password(password)
+            user.save()
+            
+            admin = OrganizationUser.objects.create(
+                user=user, organization=organization_value
+            )
+            return admin
+        except Exception as e:
+            raise CustomValidation(
+                "detail", e, status.HTTP_400_BAD_REQUEST
+            )
         
-        admin = OrganizationUser.objects.create(
-            user=user, organization=organization_value
-        )
-        return admin
     
     
-class MessageSerializer(serializers.ModelSerializer):
-        class Meta:
-            model = Message
-            fields = "__all__"
     
 class UserMessageSerializer(serializers.ModelSerializer):
-    # senderId = serializers.UUIDField(write_only=True)
     reciverId = serializers.UUIDField(write_only=True)
-    message_text = serializers.CharField(write_only=True)
     sender=LoggedInUserSerializer(read_only=True)
     reciver=LoggedInUserSerializer(read_only=True)
-    message=MessageSerializer(read_only=True)
+
     
     class Meta:
         model = UserMessage
@@ -216,8 +227,66 @@ class UserMessageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         sender_user =  self.context['request'].user
-        reciver_user=User.objects.get(id=validated_data.pop("reciverId")) 
-        message=Message.objects.create(message_body=validated_data.pop("message_text"))
-        user_mes=UserMessage.objects.create(sender=sender_user,reciver=reciver_user,message=message)
+        try:
+            reciver_user=User.objects.get(id=validated_data.pop("reciverId")) 
+            user_mes=UserMessage.objects.create(sender=sender_user,reciver=reciver_user,**validated_data)
+            return user_mes
+        except Exception as e:
+            raise CustomValidation(
+                "detail", e, status.HTTP_400_BAD_REQUEST
+            )
+            
+        #    raise Exception(e)
+
         
-        return user_mes
+        
+    
+
+class UserNotificationSerializer(serializers.ModelSerializer):
+    reciverId = serializers.UUIDField(write_only=True)
+    sender=LoggedInUserSerializer(read_only=True)
+    reciver=LoggedInUserSerializer(read_only=True)
+
+    
+    class Meta:
+        model = UserNotification
+        fields = "__all__"
+
+    def create(self, validated_data):
+        sender_user =  self.context['request'].user
+        try:
+            reciver_user=User.objects.get(id=validated_data.pop("reciverId")) 
+            user_noti=UserNotification.objects.create(sender=sender_user,reciver=reciver_user,**validated_data)
+            return user_noti
+        except Exception as e:
+            raise CustomValidation(
+                "detail", e, status.HTTP_400_BAD_REQUEST
+            )
+
+    
+    
+class MassNotificationSerializer(serializers.ModelSerializer):
+    eventId = serializers.UUIDField(write_only=True)
+    sender=LoggedInUserSerializer(read_only=True)
+    reciver=LoggedInUserSerializer(read_only=True)
+
+    
+    class Meta:
+        model = UserNotification
+        fields = "__all__"
+
+    def create(self, validated_data):
+        
+        sender_user =  self.context['request'].user
+        event=Event.objects.get(id=validated_data.pop("eventId"))
+        try:
+            event_vols=EventsVolunteers.objects.filter(event=event)
+            obj=[UserNotification(sender=sender_user,
+                                                reciver=vol.volunteer,
+                                                title=validated_data["title"],message=validated_data["message"]) for vol in event_vols]
+            noti=UserNotification.objects.bulk_create(obj)
+            return noti
+        except Exception as e:
+            raise CustomValidation(
+                "detail", e, status.HTTP_400_BAD_REQUEST
+            )

@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
+
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -75,6 +77,8 @@ TEMPLATES = [
         },
     },
 ]
+
+
 
 
 REST_FRAMEWORK = {
@@ -158,9 +162,11 @@ TIME_ZONE = "Africa/Addis_Ababa"
 
 USE_I18N = True
 
-USE_L10N = True
+DATETIME_FORMAT="%Y-%m-%d%H:%M:%S"
 
-USE_TZ = True
+USE_L10N = False
+
+USE_TZ = False
 
 
 CORS_ORIGIN_ALLOW_ALL = True

@@ -6,10 +6,12 @@ from users.models import Organization, User ,OrganizationUser
 from users.serializers import LoggedInUserSerializer, OrganizationSerializer, OrganizationUserSerializer
 from users.utils import CustomValidation, validate_phone
 from rest_framework_simplejwt.tokens import RefreshToken
-from events.models import Campaign,SuperCategory, CampaignVolunteer, Donation, Event, EventOrganizers, EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
+from events.models import (Campaign,SuperCategory, CampaignVolunteer, Donation, Event, EventOrganizers, EventsImage,
+                           EventsSchedule, EventsVolunteeringCategory, EventsVolunteers,EventCertificate, EventsVolunteersCertification, EventsVolunteersHours)
 from rest_framework.validators import UniqueTogetherValidator
 from datetime import datetime
-        
+from django.db import IntegrityError
+       
         
 class SuperCategorySerializer(serializers.ModelSerializer):
         class Meta:
@@ -20,10 +22,12 @@ class SuperCategorySerializer(serializers.ModelSerializer):
     
 class EventSerializer(serializers.ModelSerializer):
     organizationId = serializers.CharField(write_only=True)
+    categoryId= serializers.CharField(write_only=True)
     organization = OrganizationSerializer(read_only=True)
     images = serializers.SerializerMethodField()
     event_volunteering_categories=serializers.SerializerMethodField()
     general_category=SuperCategorySerializer(read_only=True)
+    event_certificate=serializers.SerializerMethodField()
 
     def get_images(self, obj):
         imgs = EventsImage.objects.filter(event=obj)
@@ -31,23 +35,35 @@ class EventSerializer(serializers.ModelSerializer):
     def get_event_volunteering_categories(self, obj):
         cat = EventsVolunteeringCategory.objects.filter(event=obj)
         return EventsVolunteeringCategorySerializer(cat, many=True).data
+    def get_event_certificate(self, obj):
+        return EventCertificate.objects.filter(event=obj).exists()
     
     class Meta:
         model = Event
         fields = ["id","title","description","organization","general_category","starting_date",
                   "ending_date","address","contact_phone","contact_email",
-                  "status","organizationId","images","event_volunteering_categories"]
+                  "status","organizationId","categoryId","images","event_volunteering_categories","event_certificate"]
 
     def create(self, validated_data):
-        organization_id = validated_data.get("organizationId")
-        validated_data.pop("organizationId")
+        organization_id = validated_data.pop("organizationId")
+        category_id=validated_data.pop("categoryId")
+        category=SuperCategory.objects.get(id=category_id)
         event = Event.objects.create(
-            **validated_data, organization=Organization.objects.get(id=organization_id)
+            **validated_data, organization=Organization.objects.get(id=organization_id),general_category=category
         )
         return event
     
     def update(self, instance, validated_data):
-        return super().update(instance, validated_data)
+        cat_id = validated_data.pop("categoryId", None)
+        event = super().update(instance, validated_data)
+        if cat_id:
+            category=SuperCategory.objects.get(id=cat_id)
+            print(event)
+            event.general_category=category
+            event.save()
+
+        return event
+
     
    
    
@@ -97,7 +113,7 @@ class EventOrganizersSerializer(serializers.ModelSerializer):
             )
         if not Event.objects.filter(id=event_id).exists():
                 raise CustomValidation(
-                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+                "detail","Invalid Event Id", status.HTTP_400_BAD_REQUEST
             )
         organization_value=Organization.objects.get(id=org_id)
         validated_data.pop("organizationId")
@@ -234,9 +250,57 @@ class EventsScheduleSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
     
+class VolunteerHistorySerializer(serializers.ModelSerializer):
+    event = EventSerializer(read_only=True)
+    volunteer=LoggedInUserSerializer(read_only=True)
+    volunteer_hrs=serializers.SerializerMethodField()
+    # volunteer_Certification=serializers.SerializerMethodField()
+    achievment=serializers.SerializerMethodField()
+    certificate=serializers.SerializerMethodField()
+    
+    
+    
+    def get_volunteer_hrs(self, obj):
+        def days_between(d1, d2):
+            return abs((d2 - d1).days)
+        
+            
+        event=obj.event
+        if event.status=='finished':
+            total_days=days_between(event.starting_date, event.ending_date)
+            absent_days=EventsVolunteersHours.objects.filter(events_volunteers=obj).count()
+            return 8*(total_days-absent_days)
+        elif event.status=='ongoing':
+            today=datetime.today().date()
+            total_days=days_between(event.starting_date, today)
+            absent_days=EventsVolunteersHours.objects.filter(events_volunteers=obj).count()
+            return 8*(total_days-absent_days)
+        else:
+            return 0
+    
+    def get_achievment(self, obj):
+        absent_days=EventsVolunteersHours.objects.filter(events_volunteers=obj).count()
+        tag="Perfect Streak" if absent_days==0 else "Decent Streak" if absent_days<3 else "Poor Streak"
+        return tag
+    
+    def get_certificate(self,obj):
+        event=obj.event 
+        if EventCertificate.objects.filter(event=event).exists():
+            event_certeficate=EventCertificate.objects.get(event=event)
+            if EventsVolunteersCertification.objects.filter(events_volunteers=obj,event_certeficate=event_certeficate).exists():
+                return True
+        return False
+        
     
     
 
+    class Meta:
+        model = EventsVolunteers
+        fields =["id","event","volunteer",
+                 "events_volunteering_category",
+                 "volunteer_hrs","achievment","certificate"]
+        
+        
 class EventsVolunteersSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
@@ -247,10 +311,17 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
     event = SimpleEventSerializer(read_only=True)
     volunteer=LoggedInUserSerializer(read_only=True)
     volunteer_hrs=serializers.SerializerMethodField()
+    volunteer_history=serializers.SerializerMethodField()
+    
 
     def get_volunteer_hrs(self, obj):
         hrs = EventsVolunteersHours.objects.filter(events_volunteers=obj,date=datetime.now().date())
         return SimpleEventsVolunteersHoursSerializer(hrs, many=True).data
+    
+    def get_volunteer_history(self, obj):
+        org=obj.event.organization
+        history_count=EventsVolunteers.objects.filter(event__organization=org,volunteer=obj.volunteer).count()
+        return history_count
     # EventsVolunteersHoursSerializer
     class Meta:
         model = EventsVolunteers
@@ -276,17 +347,11 @@ class EventsVolunteersSerializer(serializers.ModelSerializer):
         
         evnt_vol,created=EventsVolunteers.objects.get_or_create(event=evnt,volunteer=user,
                                                                 defaults={"status":"registered"})
-        
-        
         return evnt_vol
     
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
-    
-    
-# date
-# attended
-# daily_total_hours
+
 class SimpleEventsVolunteersHoursSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventsVolunteersHours
@@ -323,11 +388,31 @@ class EventsVolunteersHoursSerializer(serializers.ModelSerializer):
         return hrs
     
     
-
+class EventCertificateSerializer(serializers.ModelSerializer):
+    eventId=serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = EventCertificate
+        fields ="__all__"
+        
+        
+    def create(self, validated_data):
+        event_id=validated_data.pop('eventId')
+        
+        if not Event.objects.filter(id=event_id).exists():
+            raise CustomValidation(
+                "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
+            )
+            
+        event=Event.objects.get(id=event_id)
+        certificate=EventCertificate.objects.create(event=event,**validated_data)
+        return certificate
+        
 class EventsVolunteersCertificationSerializer(serializers.ModelSerializer):
-    userId=serializers.CharField(write_only=True)
+    # minHour=serializers.FloatField(write_only=True)
     eventId=serializers.CharField(write_only=True)
     events_volunteers = EventsVolunteersSerializer(read_only=True)
+    event_certeficate= EventsVolunteersSerializer(read_only=True)
     
     class Meta:
         model = EventsVolunteersCertification
@@ -335,23 +420,33 @@ class EventsVolunteersCertificationSerializer(serializers.ModelSerializer):
         
     def create(self, validated_data):
         event_id=validated_data.pop('eventId')
-        user_id=validated_data.pop('userId')
+        # min_hour=validated_data.pop('minHour')
         
         if not Event.objects.filter(id=event_id).exists():
             raise CustomValidation(
                 "detail", "Invalid Event Id", status.HTTP_400_BAD_REQUEST
             )
             
-        if not User.objects.filter(id=user_id).exists():
-            raise CustomValidation(
-            "detail", "Invalid User Id", status.HTTP_400_BAD_REQUEST
-        )
-            
-        user=User.objects.get(id=user_id)
         event=Event.objects.get(id=event_id)
-        vol=EventsVolunteers.objects.get(event=event,volunteer=user) 
-        hrs=EventsVolunteersCertification.objects.create(events_volunteers=vol,**validated_data)
-        return hrs
+        
+        if not EventCertificate.objects.filter(event=event).exists():
+                raise CustomValidation(
+                "detail", "No Certificate has been created under this event", status.HTTP_400_BAD_REQUEST
+            )
+                
+        try:
+            event_certeficate=EventCertificate.objects.get(event=event)
+            vols=EventsVolunteers.objects.filter(event=event)
+            obj=[EventsVolunteersCertification(events_volunteers=vol,event_certeficate=event_certeficate) for vol in vols]
+            
+            EventsVolunteersCertification.objects.bulk_create(obj) 
+            
+            return {"success":True}
+        except IntegrityError as e: 
+            raise CustomValidation(
+                "detail", "Certificate for volunteers has already been created.", status.HTTP_400_BAD_REQUEST
+            )
+
     
     
     

@@ -111,18 +111,23 @@ class OrganizationUser(models.Model):
     
 
 
-class Message(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
-    message_body=models.TextField()
-    created_time=models.TimeField(auto_now_add=True)
-    
-    
 class UserMessage(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     sender=models.ForeignKey(User,on_delete=models.CASCADE,related_name="sender")
     reciver=models.ForeignKey(User,on_delete=models.CASCADE,related_name="reciver")
-    message=models.ForeignKey(Message,on_delete=models.CASCADE)
+    message=models.TextField()
     is_read=models.BooleanField(default=False)
-    created_date=models.DateField(auto_now_add=True)
-    
+    created_date=models.DateTimeField(auto_now_add=True)
 
+
+class UserNotification(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    sender=models.ForeignKey(User,on_delete=models.CASCADE,related_name="noti_sender")
+    reciver=models.ForeignKey(User,on_delete=models.CASCADE,related_name="noti_reciver")
+    title=models.CharField(max_length=255)
+    message=models.TextField()
+    is_read=models.BooleanField(default=False)
+    created_date=models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.title

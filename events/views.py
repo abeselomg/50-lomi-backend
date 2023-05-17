@@ -3,8 +3,8 @@ from rest_framework import authentication, generics, permissions, status
 from rest_framework.response import Response
 from django.db.models import Q, Count,Sum
 # Create your views here.
-
-import datetime
+from users.utils import status_updater
+from datetime import datetime
 from django.forms.models import model_to_dict
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.views import APIView
@@ -15,10 +15,9 @@ from utils.permissions import IsAdminPermission, IsEventOrgPermission, IsSuperAd
 from users.models import (Organization, OrganizationUser, User)
 from users.serializers import ( OrganizationSerializer, OrganizationUserSerializer, UserSerializer,LoginSerializer)
 
-from events.serializers import SuperCategorySerializer, CampaignManagerSerializer,EventsVolunteeringCategoryBulkSerializer, CampaignSerializer, CampaignVolunteersSerializer, DonationSerializer, EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer, EventsVolunteersCertificationSerializer, EventsVolunteersHoursSerializer, EventsVolunteersSerializer
-from .models import Campaign,SuperCategory, CampaignVolunteer, Donation, Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
+from events.serializers import SuperCategorySerializer,EventCertificateSerializer, CampaignManagerSerializer,EventsVolunteeringCategoryBulkSerializer, CampaignSerializer, CampaignVolunteersSerializer, DonationSerializer, EventOrganizersSerializer, EventSerializer, EventsImageSerializer, EventsScheduleSerializer, EventsVolunteeringCategorySerializer, EventsVolunteersCertificationSerializer, EventsVolunteersHoursSerializer, EventsVolunteersSerializer, VolunteerHistorySerializer
+from .models import Campaign,SuperCategory,EventCertificate, CampaignVolunteer, Donation, Event, EventOrganizers,EventsImage, EventsSchedule, EventsVolunteeringCategory, EventsVolunteers, EventsVolunteersCertification, EventsVolunteersHours
 # Create your views here.
-
 
 class SuperCategoryList(generics.ListAPIView):
     queryset=SuperCategory.objects.all()
@@ -29,8 +28,10 @@ class EventsList(generics.ListAPIView):
    
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    pagination_class=CustomPagination
     
     def get_queryset(self):
+        queryset = Event.objects.all().order_by('-created_date')
         orgID = self.request.query_params.get('orgId',None)
         categoryID = self.request.query_params.get('categoryID',None)
         
@@ -39,7 +40,7 @@ class EventsList(generics.ListAPIView):
                     raise CustomValidation(
                 "detail", "Invalid Organization Id", status.HTTP_400_BAD_REQUEST
             )
-            return Event.objects.filter(organization=Organization.objects.get(id=orgID))
+            return queryset.filter(organization=Organization.objects.get(id=orgID))
            
            
         if categoryID!=None:
@@ -47,9 +48,9 @@ class EventsList(generics.ListAPIView):
                     raise CustomValidation(
                 "detail", "Invalid Category Id", status.HTTP_400_BAD_REQUEST
             )
-            return Event.objects.filter(general_category=SuperCategory.objects.get(id=categoryID))
+            return queryset.filter(status='upcoming',general_category=SuperCategory.objects.get(id=categoryID))
         else:
-            return Event.objects.all()
+            return queryset.filter(status='upcoming')
         
         
         
@@ -72,7 +73,15 @@ class EventDetail(generics.RetrieveAPIView):
     lookup_field = "id"
     
     def get(self, request, id=None):
+        st=['ongoing','upcoming']
+        if Event.objects.get(id=id).status in st:
+            obj=Event.objects.get(id=id)
+            status=status_updater(obj.starting_date,obj.ending_date)
+            if status is not None:
+                Event.objects.filter(id=id).update(status=status)
+                
         return self.retrieve(request, id)
+    
 
 class EventRUD(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,IsEventOrgPermission)
@@ -267,6 +276,8 @@ class EventsVolunteersList(generics.ListAPIView):
        
     queryset = EventsVolunteers.objects.all()
     serializer_class = EventsVolunteersSerializer
+    pagination_class=CustomPagination
+    
     
     def get_queryset(self):
         eventID = self.request.query_params.get('eventId',None)
@@ -295,7 +306,18 @@ class EventsVolunteersHoursAdd(generics.CreateAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-             
+ 
+class EventCertificateAdd(generics.CreateAPIView):
+    permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
+    queryset = EventCertificate.objects.all()
+    serializer_class = EventCertificateSerializer   
+    
+    
+    def post(self, request):
+        serializer = EventCertificateSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)         
         
 class EventsVolunteersCertificationAdd(generics.CreateAPIView):
     permission_classes= (permissions.IsAuthenticated,IsEventOrgPermission)
@@ -306,7 +328,7 @@ class EventsVolunteersCertificationAdd(generics.CreateAPIView):
         serializer = EventsVolunteersCertificationSerializer(data=request.data, context={"request": request})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"success":True}, status=status.HTTP_201_CREATED)
              
    
    
@@ -363,7 +385,7 @@ class DonationAdd(generics.ListCreateAPIView):
     queryset = Donation.objects.all()
     serializer_class = DonationSerializer
     pagination_class=CustomPagination
-    
+
 
     def post(self, request):
         serializer = DonationSerializer(data=request.data, context={"request": request})
@@ -371,12 +393,79 @@ class DonationAdd(generics.ListCreateAPIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
+
+
+
+####################################################  Volunteer Related Queries  ################################################################
+
+class VolunteerHistory(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = EventsVolunteers.objects.all()
+    serializer_class = VolunteerHistorySerializer
+    pagination_class=CustomPagination
+      
+    def list(self, request):
+        user=request.user
+        volunteer=EventsVolunteers.objects.exclude(event__status='upcoming').filter(volunteer=user)
         
-        
+        serializer = VolunteerHistorySerializer(volunteer, many=True)
+        return Response(serializer.data)
+    
+    
+    
+class VolunteerDashboard(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, format=None):
+        user=request.user
+        allevents=EventsVolunteers.objects.filter(volunteer=user)
+        ongoing_events=allevents.filter(event__status="ongoing")
+        total_hrs=0
+        my_participations=[]
+        for e in allevents:
+            event=e.event
+    
+            if event.status=='finished':
+                total_days=abs((event.starting_date - event.ending_date).days)
+                absent_days=EventsVolunteersHours.objects.filter(events_volunteers=e).count()
+                hr=8*(total_days-absent_days)
+            elif event.status=='ongoing':
+                today=datetime.today().date()
+                total_days=abs((event.starting_date - today).days)
+                absent_days=EventsVolunteersHours.objects.filter(events_volunteers=e).count()
+                hr=8*(total_days-absent_days)
+            else:
+                hr=0
+            
+            participant={"hours":hr, "value":model_to_dict(event)}
+            my_participations.append(participant)
+            total_hrs+=hr
+
+
+ 
+        return Response({
+            "total_events":allevents.count(),
+            "ongoing_events":ongoing_events.count(),
+            "total_hours":total_hrs,
+            "total_certifications":0,
+            "sorted_events_per_hours":sorted(my_participations, key=lambda d: d['hours'],reverse=True)   ,
+            
+        })
+           
+    
+    
+    
+    
+    
+####################################################   ################################################################
+    
+    
+    
+
         
 class EventDashboard(APIView):
     permission_classes = [permissions.IsAuthenticated,IsEventOrgPermission]
-
 
     def get(self, request, format=None):
         user=request.user
@@ -432,3 +521,5 @@ class AdminDashboard(APIView):
             "total_participants":total_participants,
             "sorted_campaigns_per_participants":sorted(listofparticipants, key=lambda d: d['count'],reverse=True) ,
         })
+        
+        

@@ -1,7 +1,13 @@
 from django.urls import path,include
 
-from events.views import AddCampaignManager,AdminDashboard, EventDashboard,SuperCategoryList,EventDetail,EventsVolunteersList, CampaignAdd, CampaignList, CampaignVolunteerAdd,EventsVolunteeringCategoryBulkAdd, DonationAdd, EventImageDelete, EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsImageAdd, EventsList, EventsScheduleAdd, EventsScheduleList, EventsScheduleRUD, EventsVolunteeringCategoryAdd, EventsVolunteeringCategoryRUD, EventsVolunteersAdd, EventsVolunteersCertificationAdd, EventsVolunteersHoursAdd
-
+from events.views import ( VolunteerDashboard,AddCampaignManager,
+                          AdminDashboard, EventDashboard,SuperCategoryList,EventDetail,EventsVolunteersList, CampaignAdd, 
+                          CampaignList, CampaignVolunteerAdd,EventsVolunteeringCategoryBulkAdd, DonationAdd, EventImageDelete,
+                          EventOrganizerDelete, EventOrganizersAdd, EventOrganizersOnEvent, EventRUD, EventsAdd, EventsImageAdd,
+                          EventsList, EventsScheduleAdd, EventsScheduleList, EventsScheduleRUD, EventsVolunteeringCategoryAdd, 
+                          EventsVolunteeringCategoryRUD, EventsVolunteersAdd, EventsVolunteersCertificationAdd,EventCertificateAdd, EventsVolunteersHoursAdd, 
+                          VolunteerHistory
+)
 
 urlpatterns = [
     path("get-general-categories", SuperCategoryList.as_view(), name="get-general-categories"),
@@ -31,6 +37,8 @@ urlpatterns = [
     
     path('register-for-event',EventsVolunteersAdd.as_view(),name="register-for-event"),
     path('add-hours-for-volunteer',EventsVolunteersHoursAdd.as_view(),name="add-hours-for-volunteer"),
+    
+    path('event-certificate',EventCertificateAdd.as_view(),name="event-certificate"),
     path('certificate-volunteer',EventsVolunteersCertificationAdd.as_view(),name="certificate-volunteer"),
     
     path('get-campaigns',CampaignList.as_view(),name='get-campaigns'),
@@ -42,6 +50,10 @@ urlpatterns = [
     path('get-donations',DonationAdd.as_view(),name='get-donations'),
     path('event-dashboard',EventDashboard.as_view(),name='event-dashboard'),
     path('admin-dashboard',AdminDashboard.as_view(),name='admin-dashboard'),
+    
+    path('volunteer-history',VolunteerHistory.as_view(),name='volunteer-history'),
+    path('volunteer-dashboard',VolunteerDashboard.as_view(),name='volunteer-dashboard')
+    
     
     
     

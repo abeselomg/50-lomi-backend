@@ -2,6 +2,7 @@ from uuid import uuid4
 from django.db import models
 from users.models import Organization,User,OrganizationUser
 from users.utils import validate_phone
+from django.utils import timezone
 # Create your models here.
 
 
@@ -26,6 +27,7 @@ class Event(models.Model):
     address=models.CharField(max_length=255)
     contact_phone=models.CharField(max_length=255,validators=[validate_phone],default='')
     contact_email=models.EmailField(default='')
+    created_date = models.DateTimeField('date created', default=timezone.now)
     status=models.CharField(max_length=255,default="upcoming",choices=(
     ("upcoming", "upcoming"),
     ("ongoing", "ongoing"),
@@ -35,7 +37,7 @@ class Event(models.Model):
 ))
     
     def __str__(self):
-            return self.title
+        return self.title
     
 
 class EventOrganizers(models.Model):
@@ -94,14 +96,22 @@ class EventsVolunteersHours(models.Model):
     attended=models.BooleanField()
     daily_total_hours=models.FloatField(default=0)
 
+class EventCertificate(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
+    title=models.CharField(max_length=255)
+    description=models.TextField() 
+    event=models.ForeignKey(Event,on_delete=models.CASCADE,null=True)
+    
 
 class EventsVolunteersCertification(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)
     events_volunteers=models.ForeignKey(EventsVolunteers,on_delete=models.CASCADE)
+    event_certeficate=models.ForeignKey(EventCertificate,on_delete=models.CASCADE)
     issue_date=models.DateTimeField(auto_now_add=True)
-    title=models.CharField(max_length=255)
-    description=models.TextField()
-
+    
+    class Meta:
+        unique_together = ('events_volunteers', 'event_certeficate')
+            
 
 class Campaign(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid4)

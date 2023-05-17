@@ -8,6 +8,7 @@ env
 site
 venv
 
+.env
 docker
 .idea/
 .vscode
